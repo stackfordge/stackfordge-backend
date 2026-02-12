@@ -1,0 +1,10 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn
+.idea
+*.iws
+*.iml
+*.ipr
+.DS_Store
+*.log
+*.pid
