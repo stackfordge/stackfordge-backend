@@ -1,5 +1,7 @@
 package com.stackfordge.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Refill;
@@ -14,11 +16,16 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Cache<String, Bucket> cache = Caffeine.newBuilder()
+            .expireAfterAccess(1, TimeUnit.HOURS)
+            .maximumSize(10_000)
+            .build();
+
 
     private Bucket createNewBucket() {
         Bandwidth limit = Bandwidth.classic(
@@ -41,13 +48,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // Apply only to contact POST
         if (path.equals("/api/contacts") && request.getMethod().equals("POST")) {
 
-            String ip = request.getRemoteAddr();
-            Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null || ip.isEmpty()) {
+                ip = request.getRemoteAddr();
+            }
+            Bucket bucket = cache.get(ip, k -> createNewBucket());
 
             if (!bucket.tryConsume(1)) {
                 response.setStatus(429);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"Too many requests. Try again later.\"}");
+                response.getWriter().write("""
+                {
+                    "status": 429,
+                    "error": "Too Many Requests",
+                    "message": "Rate limit exceeded. Try again later."
+                }
+                """);
                 return;
             }
         }

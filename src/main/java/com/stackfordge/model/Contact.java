@@ -4,41 +4,52 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "contacts")
-@Data
+@Table(
+        name = "contacts",
+        indexes = {
+                @Index(name = "idx_contacts_created_at", columnList = "createdAt"),
+                @Index(name = "idx_contacts_contacted", columnList = "contacted")
+        }
+)
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Contact {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @NotBlank(message = "Name is required")
+
     @Column(nullable = false)
     private String name;
-    
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email should be valid")
+
     @Column(nullable = false)
     private String email;
-    
-    @NotBlank(message = "Project type is required")
+
     private String projectType;
-    
     private String budget;
     private String timeline;
-    
-    @NotBlank(message = "Message is required")
-    @Column(columnDefinition = "TEXT")
-    private String message;
-    
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
-    
+
     @Column(nullable = false)
-    private Boolean contacted = false;
+    private String message;   // PostgreSQL will map String → TEXT automatically
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+
+    @Column(nullable = false)
+    private boolean contacted = false;
+
+    @Column(length = 45)
+    private String ipAddress;
 }

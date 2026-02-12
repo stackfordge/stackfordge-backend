@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -11,9 +12,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
+@Slf4j
 public class AdminAuthFilter extends OncePerRequestFilter {
 
-    @Value("${admin.secret}")
+    @Value("${ADMIN_SECRET}")
     private String adminSecret;
 
     @Override
@@ -23,17 +25,38 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        // Protect admin endpoints only
-        if (path.startsWith("/api/contacts") &&
-                (request.getMethod().equals("GET") ||
-                        request.getMethod().equals("DELETE") ||
-                        request.getMethod().equals("PUT"))) {
+        // Skip health endpoint
+        if (path.equals("/api/contacts/health")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Protect admin endpoints
+        boolean isAdminEndpoint =
+                path.startsWith("/api/contacts") &&
+                        (method.equals("GET") ||
+                                method.equals("PUT") ||
+                                method.equals("DELETE"));
+
+        if (isAdminEndpoint) {
 
             String secret = request.getHeader("X-ADMIN-SECRET");
 
             if (secret == null || !secret.equals(adminSecret)) {
+
+                log.warn("Unauthorized admin access attempt from IP: {}",
+                        request.getRemoteAddr());
+
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("""
+                        {
+                          "success": false,
+                          "message": "Unauthorized access"
+                        }
+                        """);
                 return;
             }
         }
@@ -41,4 +64,3 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-
