@@ -55,6 +55,9 @@ public class ContactService {
         return contactRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Contact not found with id: " + id));
     }
+    public List<Contact> getAllContacts() {
+        return contactRepository.findAll();
+    }
 
     @Transactional
     public Contact markAsContacted(Long id) {
